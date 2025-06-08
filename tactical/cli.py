@@ -55,12 +55,25 @@ DEFAULT_INSECURE_PORT = 60060
     show_default=True,
     help="Google Tasks refresh file (if it exists).",
 )
-def cli(ctx: click.Context, port, wiki_url, wiki_secrets_file, task_secrets_file, task_refresh_token):
+def cli(
+    ctx: click.Context,
+    port,
+    wiki_url,
+    wiki_secrets_file,
+    task_secrets_file,
+    task_refresh_token,
+):
     """Configure tactical server."""
     ctx.obj = {
         "insecure_port": port,
-        "wiki": WikiTools(wiki_url=wiki_url, wiki_secrets_file=wiki_secrets_file, enable_logging=False),
-        "tasks": TaskManager(task_secrets_file=task_secrets_file, task_refresh_token=task_refresh_token, enable_logging=False),
+        "wiki": WikiTools(
+            wiki_url=wiki_url, wiki_secrets_file=wiki_secrets_file, enable_logging=False
+        ),
+        "tasks": TaskManager(
+            task_secrets_file=task_secrets_file,
+            task_refresh_token=task_refresh_token,
+            enable_logging=False,
+        ),
     }
 
 
@@ -98,7 +111,10 @@ def vocab(ctx: click.Context):
             print(Fore.RED + "Failed" + Style.RESET_ALL)
 
     page_id = "eloquence"
-    entries = [entry.strip() for entry in ctx.obj["wiki"].getPage(id=page_id, as_list=False).split("\n")]
+    entries = [
+        entry.strip()
+        for entry in ctx.obj["wiki"].getPage(id=page_id, as_list=False).split("\n")
+    ]
     current_def = None
     current_word = ""
     words = []
@@ -158,9 +174,10 @@ def journal(ctx: click.Context):
     entry = random_entry[1]
     asyncio.run(cmd_impl(date, entry))
 
+
 @cli.command()
 @click.pass_context
-def tasks(ctx: click.Context): # ^^^^ TODO fix overlap
+def tasks(ctx: click.Context):
     """Update the task entries"""
 
     async def cmd_impl(today_tasks, tomorrow_tasks):
@@ -204,10 +221,19 @@ def tasks(ctx: click.Context): # ^^^^ TODO fix overlap
 
     today = datetime.date.today()
     tomorrow = datetime.date.today() + datetime.timedelta(days=1)
-    today_tasks = [task.toString(show_id=False, show_due=False, show_bar=False).replace("P0: ", "") for task in ctx.obj["tasks"].getTasks(date=today, start_date=today) if task.timing == 0 and task.days_late == 0]
-    tomrw_tasks = [task.toString(show_id=False, show_due=False, show_bar=False).replace("P0: ", "") for task in ctx.obj["tasks"].getTasks(date=tomorrow, start_date=tomorrow) if task.timing == 0 and task.days_late == 0]
+    today_tasks = [
+        task.toString(show_id=False, show_due=False, show_bar=False).replace("P0: ", "")
+        for task in ctx.obj["tasks"].getTasks(date=today, start_date=today)
+        if task.timing == 0 and task.days_late == 0
+    ]
+    tomrw_tasks = [
+        task.toString(show_id=False, show_due=False, show_bar=False).replace("P0: ", "")
+        for task in ctx.obj["tasks"].getTasks(date=tomorrow, start_date=tomorrow)
+        if task.timing == 0 and task.days_late == 0
+    ]
 
     asyncio.run(cmd_impl(today_tasks, tomrw_tasks))
+
 
 @cli.command()
 @click.pass_context
@@ -243,7 +269,10 @@ def quote(ctx: click.Context):
             print(Fore.RED + "Failed" + Style.RESET_ALL)
 
     page_id = "quotes"
-    entries = [entry.strip() for entry in ctx.obj["wiki"].getPage(id=page_id, as_list=False).split("\n")]
+    entries = [
+        entry.strip()
+        for entry in ctx.obj["wiki"].getPage(id=page_id, as_list=False).split("\n")
+    ]
     current_author = None
     current_quote = ""
     quotes = []
@@ -261,6 +290,7 @@ def quote(ctx: click.Context):
     quotes.append((current_quote, current_author))
     quote = random.choice(quotes)
     asyncio.run(cmd_impl(quote[0], quote[1]))
+
 
 @cli.command()
 @click.pass_context

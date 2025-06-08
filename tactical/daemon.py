@@ -23,17 +23,21 @@ from tactical.click_types import LogLevel
 DEFAULT_INSECURE_PORT = 60060
 DEFAULT_UIUXPAGE_PORT = 60070
 
+
 class TAR_KEYS:
     TRIAGE = "Triage"
     ACTION = "Action"
     RESULT = "Result"
 
+
 CATEGORIES = [TAR_KEYS.TRIAGE, TAR_KEYS.ACTION, TAR_KEYS.RESULT]
+
 
 def format_sigfigs(value, sigfigs=2):
     if value == 0:
         return "0"
     from math import log10, floor
+
     digits = sigfigs - int(floor(log10(abs(value)))) - 1
     return f"{round(value, digits):g}"
 
@@ -52,18 +56,42 @@ class TacticalState:
         self._storage_path = Path(storage_path)
         self._db_path = db_path
         self._data_defs = {
-            "vocab": lambda vocab: {"word": vocab.word, "definition": vocab.definition} if vocab is not None else {"word": "", "definition": ""},
-            "journal": lambda journal: {"date": journal.date, "entry": journal.entry} if journal is not None else {"date": "", "entry": ""},
-            "today_tasks": lambda tasks: {"tasks": [task for task in tasks.tasks]} if tasks is not None else {"tasks": []},
-            "tomorrow_tasks": lambda tasks: {"tasks": [task for task in tasks.tasks]} if tasks is not None else {"tasks": []},
-            "quote": lambda quote: {"author": quote.author, "quote": quote.quote} if quote is not None else {"author": "", "quote": ""},
-            "wiki_url": lambda wiki_url: {"url": wiki_url.url} if wiki_url is not None else {"url": ""},
+            "vocab": lambda vocab: (
+                {"word": vocab.word, "definition": vocab.definition}
+                if vocab is not None
+                else {"word": "", "definition": ""}
+            ),
+            "journal": lambda journal: (
+                {"date": journal.date, "entry": journal.entry}
+                if journal is not None
+                else {"date": "", "entry": ""}
+            ),
+            "today_tasks": lambda tasks: (
+                {"tasks": [task for task in tasks.tasks]}
+                if tasks is not None
+                else {"tasks": []}
+            ),
+            "tomorrow_tasks": lambda tasks: (
+                {"tasks": [task for task in tasks.tasks]}
+                if tasks is not None
+                else {"tasks": []}
+            ),
+            "quote": lambda quote: (
+                {"author": quote.author, "quote": quote.quote}
+                if quote is not None
+                else {"author": "", "quote": ""}
+            ),
+            "wiki_url": lambda wiki_url: (
+                {"url": wiki_url.url} if wiki_url is not None else {"url": ""}
+            ),
         }
         self._data = {}
         for data_key in self._data_defs.keys():
             self._data[data_key] = self._data_defs[data_key](None)
-        self._data["clock_state"] = {cat: {"state": "out", "timestamp": "NONE"} for cat in CATEGORIES}
-        
+        self._data["clock_state"] = {
+            cat: {"state": "out", "timestamp": "NONE"} for cat in CATEGORIES
+        }
+
         self._storage_path.parent.mkdir(exist_ok=True, parents=True)
         try:
             with open(self._storage_path, "r") as storage:
@@ -71,38 +99,39 @@ class TacticalState:
         except FileNotFoundError:
             with open(self._storage_path, "w") as storage:
                 storage.write(json.dumps(self._data))
-    
+
     async def _init_db(self):
         async with aiosqlite.connect(self._db_path) as db:
-            await db.execute("""
+            await db.execute(
+                """
                 CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     tag TEXT NOT NULL,
                     event_type TEXT CHECK(event_type IN ('in', 'out')) NOT NULL,
                     timestamp TEXT NOT NULL
                 )
-            """)
+            """
+            )
             await db.commit()
-    
+
     async def _clock_in(self, tag: str):
         await asyncio.create_task(self._init_db())
-        return await self._record_event(tag, 'in')
-
+        return await self._record_event(tag, "in")
 
     async def _clock_out(self, tag: str):
         await asyncio.create_task(self._init_db())
-        return await self._record_event(tag, 'out')
+        return await self._record_event(tag, "out")
 
     async def _record_event(self, tag: str, event_type: str):
         timestamp = datetime.utcnow().isoformat()
         async with aiosqlite.connect(self._db_path) as db:
             await db.execute(
                 "INSERT INTO events (tag, event_type, timestamp) VALUES (?, ?, ?)",
-                (tag, event_type, timestamp)
+                (tag, event_type, timestamp),
             )
             await db.commit()
         return timestamp
-    
+
     async def _weekly_totals(self):
         await asyncio.create_task(self._init_db())
         now = datetime.utcnow()
@@ -112,7 +141,7 @@ class TacticalState:
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
                 "SELECT tag, event_type, timestamp FROM events WHERE timestamp >= ? ORDER BY timestamp",
-                (start_of_week.isoformat(),)
+                (start_of_week.isoformat(),),
             )
             rows = await cursor.fetchall()
 
@@ -126,9 +155,9 @@ class TacticalState:
             total = timedelta()
             stack = []
             for event_type, ts in events:
-                if event_type == 'in':
+                if event_type == "in":
                     stack.append(ts)
-                elif event_type == 'out' and stack:
+                elif event_type == "out" and stack:
                     start_ts = stack.pop()
                     total += ts - start_ts
             tag_totals[tag] = total.total_seconds() / 3600.0  # convert to hours
@@ -143,7 +172,7 @@ class TacticalState:
             async with aiof.open(self._storage_path, "w") as storage:
                 await storage.write(json.dumps(self._data))
         return True
-    
+
     async def getVal(self, obj_key) -> dict:
         async with self._lock:
             if obj_key in self._data.keys():
@@ -153,7 +182,7 @@ class TacticalState:
                 return self._data[obj_key]
             else:
                 return {}
-    
+
     async def clockIn(self, itar_key) -> None:
         async with self._lock:
             if itar_key in [TAR_KEYS.TRIAGE, TAR_KEYS.ACTION, TAR_KEYS.RESULT]:
@@ -163,7 +192,9 @@ class TacticalState:
                     self._stats.action_clockins += 1
                 else:
                     self._stats.result_clockins += 1
-                self._data["clock_state"][itar_key]["timestamp"] = await self._clock_in(itar_key)
+                self._data["clock_state"][itar_key]["timestamp"] = await self._clock_in(
+                    itar_key
+                )
                 self._data["clock_state"][itar_key]["state"] = "in"
                 async with aiof.open(self._storage_path, "w") as storage:
                     await storage.write(json.dumps(self._data))
@@ -171,7 +202,9 @@ class TacticalState:
     async def clockOut(self, itar_key) -> None:
         async with self._lock:
             if itar_key in [TAR_KEYS.TRIAGE, TAR_KEYS.ACTION, TAR_KEYS.RESULT]:
-                self._data["clock_state"][itar_key]["timestamp"] = await self._clock_out(itar_key)
+                self._data["clock_state"][itar_key]["timestamp"] = (
+                    await self._clock_out(itar_key)
+                )
                 self._data["clock_state"][itar_key]["state"] = "out"
                 async with aiof.open(self._storage_path, "w") as storage:
                     await storage.write(json.dumps(self._data))
@@ -179,8 +212,12 @@ class TacticalState:
     async def getWeekTimesheet(self) -> Tuple[float, float, float]:
         async with self._lock:
             tag_totals = await self._weekly_totals()
-            return tag_totals[TAR_KEYS.TRIAGE], tag_totals[TAR_KEYS.ACTION], tag_totals[TAR_KEYS.RESULT]
-    
+            return (
+                tag_totals[TAR_KEYS.TRIAGE],
+                tag_totals[TAR_KEYS.ACTION],
+                tag_totals[TAR_KEYS.RESULT],
+            )
+
     async def incrementPageVisits(self) -> None:
         async with self._lock:
             self._stats.page_visits += 1
@@ -188,7 +225,7 @@ class TacticalState:
     async def getStats(self):
         async with self._lock:
             return self._stats
-    
+
     async def getData(self):
         async with self._lock:
             return self._data
@@ -202,13 +239,17 @@ class TacticalService(tactical_pb2_grpc.TacticalServiceServicer):
             try:
                 statsd_port = int(statsd_port)
                 if 1 <= statsd_port <= 65535:
-                    self._statsd = statsd.StatsClient('localhost', statsd_port)
+                    self._statsd = statsd.StatsClient("localhost", statsd_port)
                     logging.info(f"StatsD client initialized on port {statsd_port}")
                 else:
-                    logging.warning(f"Invalid StatsD port: {statsd_port}. Port must be between 1 and 65535.")
+                    logging.warning(
+                        f"Invalid StatsD port: {statsd_port}. Port must be between 1 and 65535."
+                    )
                     self._statsd = None
             except ValueError:
-                logging.warning(f"Invalid StatsD port: {statsd_port}. Must be an integer.")
+                logging.warning(
+                    f"Invalid StatsD port: {statsd_port}. Must be an integer."
+                )
                 self._statsd = None
         else:
             self._statsd = None
@@ -216,9 +257,10 @@ class TacticalService(tactical_pb2_grpc.TacticalServiceServicer):
 
         asyncio.get_event_loop().create_task(self.metrics_publish_thread())
 
-
     async def DailyRefresh(self, request, context):
-        return tactical_pb2.DailyRefreshResponse(success=True) # TODO for now this does nothing
+        return tactical_pb2.DailyRefreshResponse(
+            success=True
+        )  # TODO for now this does nothing
 
     async def UpdateComponent(self, request, context):
         component_update = request.component_update
@@ -231,10 +273,14 @@ class TacticalService(tactical_pb2_grpc.TacticalServiceServicer):
             success = await self._state.setVal("journal", component_update.journal)
         elif component_update.WhichOneof("component") == "today_tasks":
             logging.info("Adding today_tasks component")
-            success = await self._state.setVal("today_tasks", component_update.today_tasks)
+            success = await self._state.setVal(
+                "today_tasks", component_update.today_tasks
+            )
         elif component_update.WhichOneof("component") == "tomorrow_tasks":
             logging.info("Adding tomorrow_tasks component")
-            success = await self._state.setVal("tomorrow_tasks", component_update.tomorrow_tasks)
+            success = await self._state.setVal(
+                "tomorrow_tasks", component_update.tomorrow_tasks
+            )
         elif component_update.WhichOneof("component") == "quote":
             logging.info("Adding quote component")
             success = await self._state.setVal("quote", component_update.quote)
@@ -249,13 +295,21 @@ class TacticalService(tactical_pb2_grpc.TacticalServiceServicer):
         while True:
             stats = await self._state.getStats()
             self._statsd.gauge(f"{self._statsd_prefix}_page_visits", stats.page_visits)
-            self._statsd.gauge(f"{self._statsd_prefix}_triage_clockins", stats.triage_clockins)
-            self._statsd.gauge(f"{self._statsd_prefix}_action_clockins", stats.action_clockins)
-            self._statsd.gauge(f"{self._statsd_prefix}_result_clockins", stats.result_clockins)
+            self._statsd.gauge(
+                f"{self._statsd_prefix}_triage_clockins", stats.triage_clockins
+            )
+            self._statsd.gauge(
+                f"{self._statsd_prefix}_action_clockins", stats.action_clockins
+            )
+            self._statsd.gauge(
+                f"{self._statsd_prefix}_result_clockins", stats.result_clockins
+            )
             await asyncio.sleep(10.0)
 
 
 import signal
+
+
 async def serve_grpc(port, state, statsd_port=None):
     server = aio.server()
     tactical_pb2_grpc.add_TacticalServiceServicer_to_server(
@@ -272,9 +326,12 @@ async def serve_grpc(port, state, statsd_port=None):
         logging.info("Server stopped.")
 
     loop = asyncio.get_event_loop()
-    loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(graceful_shutdown()))
+    loop.add_signal_handler(
+        signal.SIGINT, lambda: asyncio.create_task(graceful_shutdown())
+    )
 
     await server.wait_for_termination()
+
 
 def create_flask_app(shared_state):
     app = Flask(__name__)
@@ -290,12 +347,12 @@ def create_flask_app(shared_state):
             TAR_KEYS.RESULT: rtime,
         }
         return render_template("dashboard.html", **data)
-    
+
     @app.route("/api/clock", methods=["POST"])
     def api_clock():
         data = request.get_json()
-        category = data['category']
-        action = data['action']
+        category = data["category"]
+        action = data["action"]
         if action == "clock_in":
             asyncio.run(shared_state.clockIn(category))
             new_state = "in"
@@ -303,16 +360,18 @@ def create_flask_app(shared_state):
             asyncio.run(shared_state.clockOut(category))
             new_state = "out"
         return jsonify(success=True, new_state=new_state)
-    
+
     @app.template_filter("sigfig")
     def sigfig_filter(value, sigfigs=2):
         return format_sigfigs(float(value), sigfigs)
 
     return app
 
+
 def run_flask(port, state):
     app = create_flask_app(state)
     app.run(port=port, use_reloader=False)
+
 
 @click.command()
 @click.option(
@@ -354,7 +413,13 @@ def cli(db_path, storage_path, server_port, web_port, statsd_port, log_level):
     logging.basicConfig(level=log_level)
     logging.info(f"Log level set to {log_level}")
     state = TacticalState(storage_path, db_path)
-    flask_thread = threading.Thread(target=run_flask, args=(web_port, state,))
+    flask_thread = threading.Thread(
+        target=run_flask,
+        args=(
+            web_port,
+            state,
+        ),
+    )
     flask_thread.start()
     asyncio.run(serve_grpc(server_port, state, statsd_port))
 
