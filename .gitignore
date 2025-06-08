@@ -1,0 +1,5 @@
+*.pyc
+*.nix
+nixcopy/*
+venv/*
+tmptest/*

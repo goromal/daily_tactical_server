@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Daily Tactical Page</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.clock-toggle-btn').forEach(btn => {
+            updateClockButtonAppearance(btn);  // Set initial style
+
+            btn.addEventListener('click', function () {
+                const category = btn.dataset.category;
+                const state = btn.dataset.state;
+                const action = state === 'in' ? 'clock_out' : 'clock_in';
+
+                fetch('/api/clock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category, action })
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Flip state
+                            const newState = action === 'clock_in' ? 'in' : 'out';
+                            btn.dataset.state = newState;
+                            updateClockButtonAppearance(btn);
+
+                            const now = new Date().toLocaleTimeString();
+                            const statusEl = document.getElementById(`status-${category}`);
+                            const colorClass = newState === 'in' ? 'text-success' : 'text-danger';
+                            statusEl.innerHTML = `Status: <span class="fw-bold ${colorClass}">${newState === 'in' ? 'In' : 'Out'}</span> (${now})`;
+                        }
+                    });
+            });
+        });
+
+        function updateClockButtonAppearance(btn) {
+            const state = btn.dataset.state;
+            if (state === 'in') {
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-danger');
+                btn.textContent = 'Clock Out';
+            } else {
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-success');
+                btn.textContent = 'Clock In';
+            }
+        }
+    });
+
+</script>
+
+<body class="container py-4">
+
+    <h1 class="mb-4">Daily Tactical Page</h1>
+
+    <div class="mb-5">
+        <h3>Clock In / Out</h3>
+        {% for cat in ["Triage", "Action", "Result"] %}
+        <div class="border p-3 rounded">
+            <h5>{{ cat }}</h5>
+            {% set is_in = clock_state[cat]['state'] == 'in' %}
+            <button class="btn clock-toggle-btn" id="clock-btn-{{ cat }}" data-category="{{ cat }}"
+                data-state="{{ clock_state[cat]['state'] }}">
+                {{ "Clock Out" if is_in else "Clock In" }}
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+    <h3 class="mt-4">This Week's TAR Summary ({{ weekly_total|sigfig }} hours)</h3>
+    <div class="progress" style="height: 30px;">
+        {% set colors = {'Triage': 'bg-primary', 'Action': 'bg-success', 'Result': 'bg-warning'} %}
+        {% for cat in ['Triage', 'Action', 'Result'] %}
+        {% set value = weekly_hours.get(cat, 0)|sigfig %}
+        {% if weekly_total > 0 %}
+        {% set width = ((value|float) / weekly_total) * 100 %}
+        {% else %}
+        {% set width = 0 %}
+        {% endif %}
+        <div class="progress-bar {{ colors[cat] }}" role="progressbar" style="width: {{ width }}%"
+            aria-valuenow="{{ value }}" aria-valuemin="0" aria-valuemax="{{ weekly_total }}">
+            {{ cat }} ({{ value }}h)
+        </div>
+        {% endfor %}
+    </div>
+
+    <br><br>
+
+    <div class="row mb-5">
+        <div class="col-md-6">
+            <h3>Today's Tasks ({{ today_tasks.tasks|length }})</h3>
+            <ul class="list-group">
+                {% for task in today_tasks.tasks %}
+                <li class="list-group-item">{{ task }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="col-md-6">
+            <h3>Tomorrow's Tasks ({{ tomorrow_tasks.tasks|length }})</h3>
+            <ul class="list-group">
+                {% for task in tomorrow_tasks.tasks %}
+                <li class="list-group-item">{{ task }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="mb-5">
+        <h3>Quote of the Day</h3>
+        <blockquote class="blockquote">
+            <p class="mb-0">{{ quote.quote }}</p>
+            <br>
+            <footer class="blockquote-footer">{{ quote.author }}</footer>
+        </blockquote>
+    </div>
+
+    <div class="mb-5">
+        <h3>Word of the Day: {{ vocab.word }}</h3>
+        <p>{{ vocab.definition }}</p>
+    </div>
+
+    <div class="mb-5">
+        <h3>Journal Entry - {{ journal.date }}</h3>
+        <p>{{ journal.entry }}</p>
+    </div>
+
+    <div class="mb-5">
+        <h3>Wiki Link of the Day</h3>
+        <a href="{{ wiki_url.url }}" target="_blank">{{ wiki_url.url }}</a>
+    </div>
+
+</body>
+
+</html>
