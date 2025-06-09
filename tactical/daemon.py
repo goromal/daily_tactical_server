@@ -347,7 +347,8 @@ def create_flask_app(shared_state, subdomain):
     app = Flask(__name__)
     app.secret_key = os.urandom(24)
     bp = Blueprint("tactical", __name__, url_prefix=subdomain)
-    app.register_blueprint(bp)
+    with app.app_context():
+        app.register_blueprint(bp)
 
     @bp.route("/", methods=["GET", "POST"])
     def index():
