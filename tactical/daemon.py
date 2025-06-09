@@ -213,14 +213,20 @@ class TacticalState:
     async def getWeekTimesheet(self) -> Tuple[float, float, float]:
         async with self._lock:
             tag_totals = await self._weekly_totals()
-            try:
-                return (
-                    tag_totals[TAR_KEYS.TRIAGE],
-                    tag_totals[TAR_KEYS.ACTION],
-                    tag_totals[TAR_KEYS.RESULT],
-                )
-            except:
-                return (0.0, 0.0, 0.0)
+            ttotal = (
+                tag_totals[TAR_KEYS.TRIAGE] if TAR_KEYS.TRIAGE in tag_totals else 0.0
+            )
+            atotal = (
+                tag_totals[TAR_KEYS.ACTION] if TAR_KEYS.ACTION in tag_totals else 0.0
+            )
+            rtotal = (
+                tag_totals[TAR_KEYS.RESULT] if TAR_KEYS.RESULT in tag_totals else 0.0
+            )
+            return (
+                ttotal,
+                atotal,
+                rtotal,
+            )
 
     async def incrementPageVisits(self) -> None:
         async with self._lock:
@@ -337,10 +343,10 @@ async def serve_grpc(port, state, statsd_port=None):
     await server.wait_for_termination()
 
 
-def create_flask_app(shared_state):
+def create_flask_app(shared_state, subdomain):
     app = Flask(__name__)
     app.secret_key = os.urandom(24)
-    bp = Blueprint("tactical", __name__, url_prefix=args.subdomain)
+    bp = Blueprint("tactical", __name__, url_prefix=subdomain)
     app.register_blueprint(bp)
 
     @bp.route("/")
