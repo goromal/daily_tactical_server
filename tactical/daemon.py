@@ -349,7 +349,7 @@ def create_flask_app(shared_state, subdomain):
     bp = Blueprint("tactical", __name__, url_prefix=subdomain)
     app.register_blueprint(bp)
 
-    @bp.route("/")
+    @bp.route("/", methods=["GET", "POST"])
     def index():
         data = asyncio.run(shared_state.getData())
         ttime, atime, rtime = asyncio.run(shared_state.getWeekTimesheet())
