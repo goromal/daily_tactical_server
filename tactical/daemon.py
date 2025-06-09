@@ -5,6 +5,7 @@ import aiosqlite
 import aiofiles as aiof
 import queue
 import time
+import os
 import json
 import statsd
 import threading
@@ -13,7 +14,7 @@ from datetime import datetime, timedelta
 from typing import Tuple
 from pathlib import Path
 from grpc import aio
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, Blueprint, render_template, request, redirect, url_for, jsonify
 
 from aapis.tactical.v1 import tactical_pb2_grpc, tactical_pb2
 
@@ -212,11 +213,14 @@ class TacticalState:
     async def getWeekTimesheet(self) -> Tuple[float, float, float]:
         async with self._lock:
             tag_totals = await self._weekly_totals()
-            return (
-                tag_totals[TAR_KEYS.TRIAGE],
-                tag_totals[TAR_KEYS.ACTION],
-                tag_totals[TAR_KEYS.RESULT],
-            )
+            try:
+                return (
+                    tag_totals[TAR_KEYS.TRIAGE],
+                    tag_totals[TAR_KEYS.ACTION],
+                    tag_totals[TAR_KEYS.RESULT],
+                )
+            except:
+                return (0.0, 0.0, 0.0)
 
     async def incrementPageVisits(self) -> None:
         async with self._lock:
@@ -335,8 +339,11 @@ async def serve_grpc(port, state, statsd_port=None):
 
 def create_flask_app(shared_state):
     app = Flask(__name__)
+    app.secret_key = os.urandom(24)
+    bp = Blueprint("tactical", __name__, url_prefix=args.subdomain)
+    app.register_blueprint(bp)
 
-    @app.route("/")
+    @bp.route("/")
     def index():
         data = asyncio.run(shared_state.getData())
         ttime, atime, rtime = asyncio.run(shared_state.getWeekTimesheet())
@@ -348,7 +355,7 @@ def create_flask_app(shared_state):
         }
         return render_template("dashboard.html", **data)
 
-    @app.route("/api/clock", methods=["POST"])
+    @bp.route("/api/clock", methods=["POST"])
     def api_clock():
         data = request.get_json()
         category = data["category"]
@@ -361,15 +368,15 @@ def create_flask_app(shared_state):
             new_state = "out"
         return jsonify(success=True, new_state=new_state)
 
-    @app.template_filter("sigfig")
+    @bp.template_filter("sigfig")
     def sigfig_filter(value, sigfigs=2):
         return format_sigfigs(float(value), sigfigs)
 
     return app
 
 
-def run_flask(port, state):
-    app = create_flask_app(state)
+def run_flask(port, state, subdomain):
+    app = create_flask_app(state, subdomain)
     app.run(port=port, use_reloader=False)
 
 
@@ -408,7 +415,15 @@ def run_flask(port, state):
     type=LogLevel(),
     default=logging.INFO,
 )
-def cli(db_path, storage_path, server_port, web_port, statsd_port, log_level):
+@click.option(
+    "--subdomain",
+    type=str,
+    default="/tactical",
+    help="Subdomain for a reverse proxy",
+)
+def cli(
+    db_path, storage_path, server_port, web_port, statsd_port, log_level, subdomain
+):
     """Spawn the Daily tactical server."""
     logging.basicConfig(level=log_level)
     logging.info(f"Log level set to {log_level}")
@@ -418,6 +433,7 @@ def cli(db_path, storage_path, server_port, web_port, statsd_port, log_level):
         args=(
             web_port,
             state,
+            subdomain,
         ),
     )
     flask_thread.start()
