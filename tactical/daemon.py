@@ -347,8 +347,6 @@ def create_flask_app(shared_state, subdomain):
     app = Flask(__name__)
     app.secret_key = os.urandom(24)
     bp = Blueprint("tactical", __name__, url_prefix=subdomain)
-    with app.app_context():
-        app.register_blueprint(bp)
 
     @bp.route("/", methods=["GET", "POST"])
     def index():
@@ -375,10 +373,11 @@ def create_flask_app(shared_state, subdomain):
             new_state = "out"
         return jsonify(success=True, new_state=new_state)
 
-    @bp.template_filter("sigfig")
+    @app.template_filter("sigfig")
     def sigfig_filter(value, sigfigs=2):
         return format_sigfigs(float(value), sigfigs)
 
+    app.register_blueprint(bp)
     return app
 
 
