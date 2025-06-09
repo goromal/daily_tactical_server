@@ -64,12 +64,23 @@
         <h3>Clock In / Out</h3>
         {% for cat in ["Triage", "Action", "Result"] %}
         <div class="border p-3 rounded">
-            <h5>{{ cat }}</h5>
-            {% set is_in = clock_state[cat]['state'] == 'in' %}
-            <button class="btn clock-toggle-btn" id="clock-btn-{{ cat }}" data-category="{{ cat }}"
-                data-state="{{ clock_state[cat]['state'] }}">
-                {{ "Clock Out" if is_in else "Clock In" }}
-            </button>
+            <div class="row mb-5">
+                <div class="col-md-6">
+                    <h5>{{ cat }}</h5>
+                    {% set is_in = clock_state[cat]['state'] == 'in' %}
+                    <button class="btn clock-toggle-btn" id="clock-btn-{{ cat }}" data-category="{{ cat }}"
+                        data-state="{{ clock_state[cat]['state'] }}">
+                        {{ "Clock Out" if is_in else "Clock In" }}
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <ul>
+                        <li>Coffee</li>
+                        <li>Tea</li>
+                        <li>Milk</li>
+                    </ul>
+                </div>
+            </div>
         </div>
         {% endfor %}
     </div>
