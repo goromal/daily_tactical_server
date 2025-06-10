@@ -20,6 +20,7 @@ from aapis.tactical.v1 import tactical_pb2_grpc, tactical_pb2
 
 from tactical.click_types import LogLevel
 
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 DEFAULT_INSECURE_PORT = 60060
 DEFAULT_UIUXPAGE_PORT = 60070
@@ -369,7 +370,11 @@ async def serve_grpc(port, state, statsd_port=None):
 
 
 def create_flask_app(shared_state, subdomain):
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(BASE_DIR, 'templates'),
+        static_folder=os.path.join(BASE_DIR, 'static')
+    )
     app.secret_key = os.urandom(24)
     bp = Blueprint("tactical", __name__, url_prefix=subdomain)
 
