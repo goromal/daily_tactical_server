@@ -20,6 +20,7 @@ from aapis.tactical.v1 import tactical_pb2_grpc, tactical_pb2
 
 from tactical.click_types import LogLevel
 
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 DEFAULT_INSECURE_PORT = 60060
 DEFAULT_UIUXPAGE_PORT = 60070
@@ -85,6 +86,30 @@ class TacticalState:
             "wiki_url": lambda wiki_url: (
                 {"url": wiki_url.url} if wiki_url is not None else {"url": ""}
             ),
+            "tar_links": lambda tar_links: (
+                {
+                    TAR_KEYS.TRIAGE: [
+                        ("ITNS", "https://www.notion.so/ITNS-3ea6f1aa43564b0386bcaba6c7b79870"),
+                        ("Trello", "https://trello.com/w/workspace69213858"),
+                        ("Tasks", "https://calendar.google.com/calendar/u/0/r/tasks"),
+                    ],
+                    TAR_KEYS.ACTION: [
+                        ("ITNS", "https://www.notion.so/ITNS-3ea6f1aa43564b0386bcaba6c7b79870"),
+                        ("Trello", "https://trello.com/w/workspace69213858"),
+                        ("Tasks", "https://calendar.google.com/calendar/u/0/r/tasks"),
+                        ("Math", "https://github.com/goromal/scratchpad"),
+                    ],
+                    TAR_KEYS.RESULT: [
+                        ("Wiki", "http://ats.local/wiki/"),
+                        ("Projects", "https://github.com/goromal/projects"),
+                        ("Software", "https://github.com/goromal/anixpkgs"),
+                        ("Notes", "https://github.com/goromal/notes/tree/master"),
+                        ("Math", "https://github.com/goromal/scratchpad"),
+                        ("Art", "https://github.com/goromal/art"),
+                        ("Resume", "https://andrewtorgesen.com/res/resume.pdf")
+                    ],
+                }
+            )
         }
         self._data = {}
         for data_key in self._data_defs.keys():
@@ -96,7 +121,8 @@ class TacticalState:
         self._storage_path.parent.mkdir(exist_ok=True, parents=True)
         try:
             with open(self._storage_path, "r") as storage:
-                self._data = json.loads(storage.read())
+                data = json.loads(storage.read())
+                self._data = self._data | data
         except FileNotFoundError:
             with open(self._storage_path, "w") as storage:
                 storage.write(json.dumps(self._data))
@@ -344,7 +370,12 @@ async def serve_grpc(port, state, statsd_port=None):
 
 
 def create_flask_app(shared_state, subdomain):
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(BASE_DIR, 'templates'),
+        static_folder=os.path.join(BASE_DIR, 'static'),
+        static_url_path=f"/{subdomain}/static"
+    )
     app.secret_key = os.urandom(24)
     bp = Blueprint("tactical", __name__, url_prefix=subdomain)
 

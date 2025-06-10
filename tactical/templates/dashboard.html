@@ -6,6 +6,7 @@
     <title>Daily Tactical Page</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 </head>
 
 <script>
@@ -60,23 +61,37 @@
 
     <h1 class="mb-4">Daily Tactical Page</h1>
 
+    <img src="{{ url_for('static', filename='ITAR.svg') }}" width="750px" />
+
     <div class="mb-5">
         <h3>Clock In / Out</h3>
         {% for cat in ["Triage", "Action", "Result"] %}
         <div class="border p-3 rounded">
-            <h5>{{ cat }}</h5>
-            {% set is_in = clock_state[cat]['state'] == 'in' %}
-            <button class="btn clock-toggle-btn" id="clock-btn-{{ cat }}" data-category="{{ cat }}"
-                data-state="{{ clock_state[cat]['state'] }}">
-                {{ "Clock Out" if is_in else "Clock In" }}
-            </button>
+            <div class="row mb-5">
+                <div class="col-md-6">
+                    <h5>{{ cat }}</h5>
+                    {% set is_in = clock_state[cat]['state'] == 'in' %}
+                    <button class="btn clock-toggle-btn" id="clock-btn-{{ cat }}" data-category="{{ cat }}"
+                        data-state="{{ clock_state[cat]['state'] }}">
+                        {{ "Clock Out" if is_in else "Clock In" }}
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <ul>
+                        {% for l in tar_links[cat] %}
+                        <li><a href="{{ l[1] }}">{{ l[0] }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
         </div>
         {% endfor %}
     </div>
 
-    <h3 class="mt-4">This Week's TAR Summary ({{ weekly_total|sigfig }} hours)</h3>
+    <h3 class=" mt-4">This Week's TAR Summary ({{ weekly_total|sigfig }} hours)</h3>
     <div class="progress" style="height: 30px;">
-        {% set colors = {'Triage': 'bg-primary', 'Action': 'bg-success', 'Result': 'bg-warning'} %}
+        {% set colors = {'Triage': 'bg-primary', 'Action': 'bg-success', 'Result':
+        'bg-warning'} %}
         {% for cat in ['Triage', 'Action', 'Result'] %}
         {% set value = weekly_hours.get(cat, 0)|sigfig %}
         {% if weekly_total > 0 %}
