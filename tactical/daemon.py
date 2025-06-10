@@ -373,7 +373,8 @@ def create_flask_app(shared_state, subdomain):
     app = Flask(
         __name__,
         template_folder=os.path.join(BASE_DIR, 'templates'),
-        static_folder=os.path.join(BASE_DIR, 'static')
+        static_folder=os.path.join(BASE_DIR, 'static'),
+        static_url_path=f"/{subdomain}/static"
     )
     app.secret_key = os.urandom(24)
     bp = Blueprint("tactical", __name__, url_prefix=subdomain)
