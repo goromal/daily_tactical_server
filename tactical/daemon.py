@@ -120,7 +120,8 @@ class TacticalState:
         self._storage_path.parent.mkdir(exist_ok=True, parents=True)
         try:
             with open(self._storage_path, "r") as storage:
-                self._data = json.loads(storage.read())
+                data = json.loads(storage.read())
+                self._data = self._data | data
         except FileNotFoundError:
             with open(self._storage_path, "w") as storage:
                 storage.write(json.dumps(self._data))

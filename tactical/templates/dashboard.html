@@ -60,7 +60,7 @@
 
     <h1 class="mb-4">Daily Tactical Page</h1>
 
-    <img src="static/ITAR.svg" />
+    <img src="/static/ITAR.svg" width="750px" />
 
     <div class="mb-5">
         <h3>Clock In / Out</h3>
@@ -78,7 +78,7 @@
                 <div class="col-md-6">
                     <ul>
                         {% for l in tar_links[cat] %}
-                        <li><a href="{{ l[1] }}">{{ l[0] }}</li>
+                        <li><a href="{{ l[1] }}">{{ l[0] }}</a></li>
                         {% endfor %}
                     </ul>
                 </div>
