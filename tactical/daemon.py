@@ -85,6 +85,30 @@ class TacticalState:
             "wiki_url": lambda wiki_url: (
                 {"url": wiki_url.url} if wiki_url is not None else {"url": ""}
             ),
+            "tar_links": lambda tar_links: (
+                {
+                    TAR_KEYS.TRIAGE: [
+                        ("ITNS", "https://www.notion.so/ITNS-3ea6f1aa43564b0386bcaba6c7b79870"),
+                        ("Trello", "https://trello.com/w/workspace69213858"),
+                        ("Tasks", "https://calendar.google.com/calendar/u/0/r/tasks"),
+                    ],
+                    TAR_KEYS.ACTION: [
+                        ("ITNS", "https://www.notion.so/ITNS-3ea6f1aa43564b0386bcaba6c7b79870"),
+                        ("Trello", "https://trello.com/w/workspace69213858"),
+                        ("Tasks", "https://calendar.google.com/calendar/u/0/r/tasks"),
+                        ("Math", "https://github.com/goromal/scratchpad"),
+                    ],
+                    TAR_KEYS.RESULT: [
+                        ("Wiki", "http://ats.local/wiki/"),
+                        ("Projects", "https://github.com/goromal/projects"),
+                        ("Software", "https://github.com/goromal/anixpkgs"),
+                        ("Notes", "https://github.com/goromal/notes/tree/master"),
+                        ("Math", "https://github.com/goromal/scratchpad"),
+                        ("Art", "https://github.com/goromal/art"),
+                        ("Resume", "https://andrewtorgesen.com/res/resume.pdf")
+                    ],
+                }
+            )
         }
         self._data = {}
         for data_key in self._data_defs.keys():

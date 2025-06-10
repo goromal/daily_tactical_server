@@ -60,6 +60,8 @@
 
     <h1 class="mb-4">Daily Tactical Page</h1>
 
+    <img src="static/ITAR.svg" />
+
     <div class="mb-5">
         <h3>Clock In / Out</h3>
         {% for cat in ["Triage", "Action", "Result"] %}
@@ -75,9 +77,9 @@
                 </div>
                 <div class="col-md-6">
                     <ul>
-                        <li>Coffee</li>
-                        <li>Tea</li>
-                        <li>Milk</li>
+                        {% for l in tar_links[cat] %}
+                        <li><a href="{{ l[1] }}">{{ l[0] }}</li>
+                        {% endfor %}
                     </ul>
                 </div>
             </div>
@@ -85,9 +87,10 @@
         {% endfor %}
     </div>
 
-    <h3 class="mt-4">This Week's TAR Summary ({{ weekly_total|sigfig }} hours)</h3>
+    <h3 class=" mt-4">This Week's TAR Summary ({{ weekly_total|sigfig }} hours)</h3>
     <div class="progress" style="height: 30px;">
-        {% set colors = {'Triage': 'bg-primary', 'Action': 'bg-success', 'Result': 'bg-warning'} %}
+        {% set colors = {'Triage': 'bg-primary', 'Action': 'bg-success', 'Result':
+        'bg-warning'} %}
         {% for cat in ['Triage', 'Action', 'Result'] %}
         {% set value = weekly_hours.get(cat, 0)|sigfig %}
         {% if weekly_total > 0 %}
