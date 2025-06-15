@@ -375,7 +375,7 @@ async def serve_grpc(port, state, statsd_port=None):
     await server.wait_for_termination()
 
 
-def create_flask_app(shared_state, subdomain):
+def create_flask_app(shared_state, subdomain, main_loop):
     app = Flask(
         __name__,
         template_folder=os.path.join(BASE_DIR, "templates"),
@@ -387,11 +387,15 @@ def create_flask_app(shared_state, subdomain):
 
     @bp.route("/", methods=["GET", "POST"])
     def index():
-        asyncio.get_event_loop().run_until_complete(shared_state.incrementPageVisits())
-        data = asyncio.get_event_loop().run_until_complete(shared_state.getData())
-        ttime, atime, rtime = asyncio.get_event_loop().run_until_complete(
+        asyncio.run_coroutine_threadsafe(
+            shared_state.incrementPageVisits(), main_loop
+        ).result()
+        dataFuture = asyncio.run_coroutine_threadsafe(shared_state.getData())
+        data = dataFuture.result()
+        timesheetFuture = asyncio.run_coroutine_threadsafe(
             shared_state.getWeekTimesheet()
         )
+        ttime, atime, rtime = timesheetFuture.result()
         data["weekly_total"] = ttime + atime + rtime
         data["weekly_hours"] = {
             TAR_KEYS.TRIAGE: ttime,
@@ -406,10 +410,14 @@ def create_flask_app(shared_state, subdomain):
         category = data["category"]
         action = data["action"]
         if action == "clock_in":
-            asyncio.get_event_loop().run_until_complete(shared_state.clockIn(category))
+            asyncio.run_coroutine_threadsafe(
+                shared_state.clockIn(category), main_loop
+            ).result()
             new_state = "in"
         else:
-            asyncio.get_event_loop().run_until_complete(shared_state.clockOut(category))
+            asyncio.run_coroutine_threadsafe(
+                shared_state.clockOut(category), main_loop
+            ).result()
             new_state = "out"
         return jsonify(success=True, new_state=new_state)
 
@@ -421,8 +429,8 @@ def create_flask_app(shared_state, subdomain):
     return app
 
 
-def run_flask(port, state, subdomain):
-    app = create_flask_app(state, subdomain)
+def run_flask(port, state, subdomain, main_loop):
+    app = create_flask_app(state, subdomain, main_loop)
     app.run(port=port, use_reloader=False)
 
 
@@ -474,18 +482,18 @@ def cli(
     logging.basicConfig(level=log_level)
     logging.info(f"Log level set to {log_level}")
     state = TacticalState(storage_path, db_path)
+    main_async_loop = asyncio.get_event_loop()
     flask_thread = threading.Thread(
         target=run_flask,
         args=(
             web_port,
             state,
             subdomain,
+            main_async_loop,
         ),
     )
     flask_thread.start()
-    asyncio.get_event_loop().run_until_complete(
-        serve_grpc(server_port, state, statsd_port)
-    )
+    main_async_loop.run_until_complete(serve_grpc(server_port, state, statsd_port))
 
 
 def main():
