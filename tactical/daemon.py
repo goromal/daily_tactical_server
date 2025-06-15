@@ -89,12 +89,18 @@ class TacticalState:
             "tar_links": lambda tar_links: (
                 {
                     TAR_KEYS.TRIAGE: [
-                        ("ITNS", "https://www.notion.so/ITNS-3ea6f1aa43564b0386bcaba6c7b79870"),
+                        (
+                            "ITNS",
+                            "https://www.notion.so/ITNS-3ea6f1aa43564b0386bcaba6c7b79870",
+                        ),
                         ("Trello", "https://trello.com/w/workspace69213858"),
                         ("Tasks", "https://calendar.google.com/calendar/u/0/r/tasks"),
                     ],
                     TAR_KEYS.ACTION: [
-                        ("ITNS", "https://www.notion.so/ITNS-3ea6f1aa43564b0386bcaba6c7b79870"),
+                        (
+                            "ITNS",
+                            "https://www.notion.so/ITNS-3ea6f1aa43564b0386bcaba6c7b79870",
+                        ),
                         ("Trello", "https://trello.com/w/workspace69213858"),
                         ("Tasks", "https://calendar.google.com/calendar/u/0/r/tasks"),
                         ("Math", "https://github.com/goromal/scratchpad"),
@@ -106,10 +112,10 @@ class TacticalState:
                         ("Notes", "https://github.com/goromal/notes/tree/master"),
                         ("Math", "https://github.com/goromal/scratchpad"),
                         ("Art", "https://github.com/goromal/art"),
-                        ("Resume", "https://andrewtorgesen.com/res/resume.pdf")
+                        ("Resume", "https://andrewtorgesen.com/res/resume.pdf"),
                     ],
                 }
-            )
+            ),
         }
         self._data = {}
         for data_key in self._data_defs.keys():
@@ -369,20 +375,27 @@ async def serve_grpc(port, state, statsd_port=None):
     await server.wait_for_termination()
 
 
-def create_flask_app(shared_state, subdomain):
+def create_flask_app(shared_state, subdomain, main_loop):
     app = Flask(
         __name__,
-        template_folder=os.path.join(BASE_DIR, 'templates'),
-        static_folder=os.path.join(BASE_DIR, 'static'),
-        static_url_path=f"/{subdomain}/static"
+        template_folder=os.path.join(BASE_DIR, "templates"),
+        static_folder=os.path.join(BASE_DIR, "static"),
+        static_url_path=f"/{subdomain}/static",
     )
     app.secret_key = os.urandom(24)
     bp = Blueprint("tactical", __name__, url_prefix=subdomain)
 
     @bp.route("/", methods=["GET", "POST"])
     def index():
-        data = asyncio.run(shared_state.getData())
-        ttime, atime, rtime = asyncio.run(shared_state.getWeekTimesheet())
+        asyncio.run_coroutine_threadsafe(
+            shared_state.incrementPageVisits(), main_loop
+        ).result()
+        dataFuture = asyncio.run_coroutine_threadsafe(shared_state.getData(), main_loop)
+        data = dataFuture.result()
+        timesheetFuture = asyncio.run_coroutine_threadsafe(
+            shared_state.getWeekTimesheet(), main_loop
+        )
+        ttime, atime, rtime = timesheetFuture.result()
         data["weekly_total"] = ttime + atime + rtime
         data["weekly_hours"] = {
             TAR_KEYS.TRIAGE: ttime,
@@ -397,10 +410,14 @@ def create_flask_app(shared_state, subdomain):
         category = data["category"]
         action = data["action"]
         if action == "clock_in":
-            asyncio.run(shared_state.clockIn(category))
+            asyncio.run_coroutine_threadsafe(
+                shared_state.clockIn(category), main_loop
+            ).result()
             new_state = "in"
         else:
-            asyncio.run(shared_state.clockOut(category))
+            asyncio.run_coroutine_threadsafe(
+                shared_state.clockOut(category), main_loop
+            ).result()
             new_state = "out"
         return jsonify(success=True, new_state=new_state)
 
@@ -412,8 +429,8 @@ def create_flask_app(shared_state, subdomain):
     return app
 
 
-def run_flask(port, state, subdomain):
-    app = create_flask_app(state, subdomain)
+def run_flask(port, state, subdomain, main_loop):
+    app = create_flask_app(state, subdomain, main_loop)
     app.run(port=port, use_reloader=False)
 
 
@@ -465,16 +482,18 @@ def cli(
     logging.basicConfig(level=log_level)
     logging.info(f"Log level set to {log_level}")
     state = TacticalState(storage_path, db_path)
+    main_async_loop = asyncio.get_event_loop()
     flask_thread = threading.Thread(
         target=run_flask,
         args=(
             web_port,
             state,
             subdomain,
+            main_async_loop,
         ),
     )
     flask_thread.start()
-    asyncio.run(serve_grpc(server_port, state, statsd_port))
+    main_async_loop.run_until_complete(serve_grpc(server_port, state, statsd_port))
 
 
 def main():
