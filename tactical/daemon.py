@@ -390,10 +390,10 @@ def create_flask_app(shared_state, subdomain, main_loop):
         asyncio.run_coroutine_threadsafe(
             shared_state.incrementPageVisits(), main_loop
         ).result()
-        dataFuture = asyncio.run_coroutine_threadsafe(shared_state.getData())
+        dataFuture = asyncio.run_coroutine_threadsafe(shared_state.getData(), main_loop)
         data = dataFuture.result()
         timesheetFuture = asyncio.run_coroutine_threadsafe(
-            shared_state.getWeekTimesheet()
+            shared_state.getWeekTimesheet(), main_loop
         )
         ttime, atime, rtime = timesheetFuture.result()
         data["weekly_total"] = ttime + atime + rtime
