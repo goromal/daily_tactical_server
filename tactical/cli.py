@@ -325,7 +325,7 @@ def wiki_url(ctx: click.Context):
             print(Fore.RED + "Failed" + Style.RESET_ALL)
 
     # TODO randomized page selection
-    url = "http://ats.local/"
+    url = "http://ats.local/wiki/"
     asyncio.run(cmd_impl(url))
 
 
