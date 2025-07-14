@@ -61,7 +61,7 @@
 
     <h1 class="mb-4">Daily Tactical Page</h1>
 
-    <img src="{{ url_for('static', filename='ITAR.svg') }}" width="750px" />
+    <img src="https://raw.githubusercontent.com/goromal/anixdata/refs/heads/master/data/img/itar.svg" width="750px" />
 
     <div class="mb-5">
         <h3>Clock In / Out</h3>
@@ -148,17 +148,17 @@
 
     <div class="mb-5">
         <h3>Wiki Link of the Day</h3>
-        <a href="{{ wiki_url.url }}" target="_blank">{{ wiki_url.url }}</a>
+        <a href="{{ wiki_url.url }}" target="_blank" rel="noopener noreferrer">{{ wiki_url.url }}</a>
     </div>
 
     <div class="mb-5">
-        <h3>Daily Log</h3>
-        <a href="https://forms.gle/ApenPRDFczD4MMMd9">Fill it out</a>
-    </div>
-
-    <div class="mb-5">
-        <h3>ITAR Feedback</h3>
-        <a href="https://forms.gle/C8oW2KApLjGQaqiYA">Fill it out</a>
+        <h3>Behavioral Feedback</h3>
+        <ul class="list-group">
+            {% for survey in surveys %}
+            <li class="list-group-item"><a href="{{ survey.link }}" target="_blank" rel="noopener noreferrer">{{
+                    survey.name }}</a></li>
+            {% endfor %}
+        </ul>
     </div>
 
 </body>

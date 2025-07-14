@@ -52,11 +52,12 @@ class TacticalState:
             self.action_clockins = 0
             self.result_clockins = 0
 
-    def __init__(self, storage_path: str, db_path: str):
+    def __init__(self, storage_path: str, db_path: str, surveys_path: str):
         self._lock = asyncio.Lock()
         self._stats = TacticalState.Stats()
-        self._storage_path = Path(storage_path)
-        self._db_path = db_path
+        self._storage_path = Path(os.path.expanduser(storage_path))
+        self._db_path = os.path.expanduser(db_path)
+        self._surveys_path = os.path.expanduser(surveys_path)
         self._data_defs = {
             "vocab": lambda vocab: (
                 {"word": vocab.word, "definition": vocab.definition}
@@ -270,6 +271,15 @@ class TacticalState:
 
     async def getData(self):
         async with self._lock:
+            surveys = []
+            try:
+                async with aiof.open(self._surveys_path, "r") as surveys_csv:
+                    async for line in surveys_csv:
+                        link_and_name = line.split("|")
+                        surveys.append({"link": link_and_name[0], "name": link_and_name[1]})
+            except:
+                logging.warn("Unable to read and populate survey links")
+            self._data["surveys"] = surveys
             return self._data
 
 
@@ -475,13 +485,19 @@ def run_flask(port, state, subdomain, main_loop):
     default="/tactical",
     help="Subdomain for a reverse proxy",
 )
+@click.option(
+    "--surveys",
+    type=str,
+    default="~/configs/survey-links.csv",
+    help="Path to survey links",
+)
 def cli(
-    db_path, storage_path, server_port, web_port, statsd_port, log_level, subdomain
+    db_path, storage_path, server_port, web_port, statsd_port, log_level, subdomain, surveys
 ):
     """Spawn the Daily tactical server."""
     logging.basicConfig(level=log_level)
     logging.info(f"Log level set to {log_level}")
-    state = TacticalState(storage_path, db_path)
+    state = TacticalState(storage_path, db_path, surveys)
     main_async_loop = asyncio.get_event_loop()
     flask_thread = threading.Thread(
         target=run_flask,
