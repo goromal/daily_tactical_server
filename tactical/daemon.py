@@ -276,7 +276,9 @@ class TacticalState:
                 async with aiof.open(self._surveys_path, "r") as surveys_csv:
                     async for line in surveys_csv:
                         link_and_name = line.split("|")
-                        surveys.append({"link": link_and_name[0], "name": link_and_name[1]})
+                        surveys.append(
+                            {"link": link_and_name[0], "name": link_and_name[1]}
+                        )
             except:
                 logging.warn("Unable to read and populate survey links")
             self._data["surveys"] = surveys
@@ -492,7 +494,14 @@ def run_flask(port, state, subdomain, main_loop):
     help="Path to survey links",
 )
 def cli(
-    db_path, storage_path, server_port, web_port, statsd_port, log_level, subdomain, surveys
+    db_path,
+    storage_path,
+    server_port,
+    web_port,
+    statsd_port,
+    log_level,
+    subdomain,
+    surveys,
 ):
     """Spawn the Daily tactical server."""
     logging.basicConfig(level=log_level)
