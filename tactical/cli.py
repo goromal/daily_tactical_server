@@ -32,12 +32,18 @@ DEFAULT_INSECURE_PORT = 60060
     help="URL of the DokuWiki instance (https).",
 )
 @click.option(
-    "--wiki-secrets-file",
-    "wiki_secrets_file",
-    type=click.Path(),
-    default=WTD.WIKI_SECRETS_FILE,
-    show_default=True,
-    help="Path to the DokuWiki login secrets JSON file.",
+    "--wiki-user",
+    "wiki_user",
+    type=str,
+    required=True,
+    help="Wiki account username.",
+)
+@click.option(
+    "--wiki-pass",
+    "wiki_pass",
+    type=str,
+    required=True,
+    help="Wiki account password.",
 )
 @click.option(
     "--task-secrets-file",
@@ -59,7 +65,8 @@ def cli(
     ctx: click.Context,
     port,
     wiki_url,
-    wiki_secrets_file,
+    wiki_user,
+    wiki_pass,
     task_secrets_file,
     task_refresh_token,
 ):
@@ -67,7 +74,10 @@ def cli(
     ctx.obj = {
         "insecure_port": port,
         "wiki": WikiTools(
-            wiki_url=wiki_url, wiki_secrets_file=wiki_secrets_file, enable_logging=False
+            wiki_url=wiki_url,
+            wiki_user=wiki_user,
+            wiki_pass=wiki_pass,
+            enable_logging=False,
         ),
         "tasks": TaskManager(
             task_secrets_file=task_secrets_file,
