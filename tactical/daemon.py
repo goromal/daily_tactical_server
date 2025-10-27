@@ -3,8 +3,6 @@ import logging
 import asyncio
 import aiosqlite
 import aiofiles as aiof
-import queue
-import time
 import os
 import json
 import statsd
@@ -14,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Tuple
 from pathlib import Path
 from grpc import aio
-from flask import Flask, Blueprint, render_template, request, redirect, url_for, jsonify
+from flask import Flask, Blueprint, render_template, request, jsonify, Response
 
 from aapis.tactical.v1 import tactical_pb2_grpc, tactical_pb2
 
@@ -415,6 +413,18 @@ def create_flask_app(shared_state, subdomain, main_loop):
             TAR_KEYS.RESULT: rtime,
         }
         return render_template("dashboard.html", **data)
+    
+    @bp.route("/feed.xml")
+    def rss_feed():
+        dataFuture = asyncio.run_coroutine_threadsafe(shared_state.getData(), main_loop)
+        data = dataFuture.result()
+        rendered_xml = render_template(
+            "feed.xml.j2",
+            site_url="https://andrewtorgesen.com", # ^^^^ TODO is this needed?
+            build_date=datetime.now(datetime.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000"),
+            **data
+        )
+        return Response(rendered_xml, mimetype="application/rss+xml")
 
     @bp.route("/api/clock", methods=["POST"])
     def api_clock():

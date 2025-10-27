@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Daily Tactical Page</title>
+    <link>{{ site_url }}</link>
+    <description>Automated daily tactical summary</description>
+    <language>en-us</language>
+    <lastBuildDate>{{ build_date }}</lastBuildDate>
+
+    <image>
+      <url>https://raw.githubusercontent.com/goromal/anixdata/refs/heads/master/data/img/itar.svg</url>
+      <title>Daily Tactical Page</title>
+      <link>{{ site_url }}</link>
+    </image>
+
+    <!-- Today's Tasks -->
+    <item>
+      <title>Today's Tasks ({{ today_tasks.tasks|length }})</title>
+      <link>{{ site_url }}/tasks/today</link>
+      <description><![CDATA[
+        <ul>
+          {% for task in today_tasks.tasks %}
+            <li>{{ task }}</li>
+          {% endfor %}
+        </ul>
+      ]]></description>
+      <pubDate>{{ build_date }}</pubDate>
+      <guid isPermaLink="false">today-tasks-{{ build_date|replace(' ', '-') }}</guid>
+    </item>
+
+    <!-- Tomorrow's Tasks -->
+    <item>
+      <title>Tomorrow's Tasks ({{ tomorrow_tasks.tasks|length }})</title>
+      <link>{{ site_url }}/tasks/tomorrow</link>
+      <description><![CDATA[
+        <ul>
+          {% for task in tomorrow_tasks.tasks %}
+            <li>{{ task }}</li>
+          {% endfor %}
+        </ul>
+      ]]></description>
+      <pubDate>{{ build_date }}</pubDate>
+      <guid isPermaLink="false">tomorrow-tasks-{{ build_date|replace(' ', '-') }}</guid>
+    </item>
+
+    <!-- Quote of the Day -->
+    <item>
+      <title>Quote of the Day</title>
+      <link>{{ site_url }}/quote</link>
+      <description><![CDATA[
+        <blockquote>
+          <p>{{ quote.quote }}</p>
+          <footer>{{ quote.author }}</footer>
+        </blockquote>
+      ]]></description>
+      <pubDate>{{ build_date }}</pubDate>
+      <guid isPermaLink="false">quote-{{ build_date|replace(' ', '-') }}</guid>
+    </item>
+
+    <!-- Word of the Day -->
+    <item>
+      <title>Word of the Day: {{ vocab.word }}</title>
+      <link>{{ site_url }}/vocab</link>
+      <description><![CDATA[
+        <p>{{ vocab.definition }}</p>
+      ]]></description>
+      <pubDate>{{ build_date }}</pubDate>
+      <guid isPermaLink="false">vocab-{{ vocab.word }}</guid>
+    </item>
+
+    <!-- Journal Entry -->
+    <item>
+      <title>Journal Entry - {{ journal.date }}</title>
+      <link>{{ site_url }}/journal</link>
+      <description><![CDATA[
+        <p>{{ journal.entry }}</p>
+      ]]></description>
+      <pubDate>{{ build_date }}</pubDate>
+      <guid isPermaLink="false">journal-{{ journal.date }}</guid>
+    </item>
+
+    <!-- Wiki Link of the Day -->
+    <item>
+      <title>Wiki Link of the Day</title>
+      <link>{{ wiki_url.url }}</link>
+      <description><![CDATA[
+        <a href="{{ wiki_url.url }}" target="_blank">{{ wiki_url.url }}</a>
+      ]]></description>
+      <pubDate>{{ build_date }}</pubDate>
+      <guid isPermaLink="false">wiki-{{ build_date|replace(' ', '-') }}</guid>
+    </item>
+
+    <!-- Behavioral Feedback -->
+    <item>
+      <title>Behavioral Feedback</title>
+      <link>{{ site_url }}/surveys</link>
+      <description><![CDATA[
+        <ul>
+          {% for survey in surveys %}
+            <li><a href="{{ survey.link }}" target="_blank">{{ survey.name }}</a></li>
+          {% endfor %}
+        </ul>
+      ]]></description>
+      <pubDate>{{ build_date }}</pubDate>
+      <guid isPermaLink="false">surveys-{{ build_date|replace(' ', '-') }}</guid>
+    </item>
+
+  </channel>
+</rss>
