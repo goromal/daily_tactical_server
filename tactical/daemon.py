@@ -421,7 +421,7 @@ def create_flask_app(shared_state, subdomain, main_loop):
         rendered_xml = render_template(
             "feed.xml.j2",
             site_url="https://andrewtorgesen.com", # ^^^^ TODO is this needed?
-            build_date=datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000"),
+            build_date=datetime.utcnow().strftime("%a, %d %b %Y 00:00:00 +0000"),
             **data
         )
         return Response(rendered_xml, mimetype="application/rss+xml")
