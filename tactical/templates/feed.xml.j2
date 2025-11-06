@@ -7,42 +7,6 @@
     <language>en-us</language>
     <lastBuildDate>{{ build_date }}</lastBuildDate>
 
-    <image>
-      <url>https://raw.githubusercontent.com/goromal/anixdata/refs/heads/master/data/img/itar.svg</url>
-      <title>Daily Tactical Page</title>
-      <link>{{ site_url }}</link>
-    </image>
-
-    <!-- Today's Tasks -->
-    <item>
-      <title>Today's Tasks ({{ today_tasks.tasks|length }})</title>
-      <link>{{ site_url }}/tasks/today</link>
-      <description><![CDATA[
-        <ul>
-          {% for task in today_tasks.tasks %}
-            <li>{{ task }}</li>
-          {% endfor %}
-        </ul>
-      ]]></description>
-      <pubDate>{{ build_date }}</pubDate>
-      <guid isPermaLink="false">today-tasks-{{ build_date|replace(' ', '-') }}</guid>
-    </item>
-
-    <!-- Tomorrow's Tasks -->
-    <item>
-      <title>Tomorrow's Tasks ({{ tomorrow_tasks.tasks|length }})</title>
-      <link>{{ site_url }}/tasks/tomorrow</link>
-      <description><![CDATA[
-        <ul>
-          {% for task in tomorrow_tasks.tasks %}
-            <li>{{ task }}</li>
-          {% endfor %}
-        </ul>
-      ]]></description>
-      <pubDate>{{ build_date }}</pubDate>
-      <guid isPermaLink="false">tomorrow-tasks-{{ build_date|replace(' ', '-') }}</guid>
-    </item>
-
     <!-- Quote of the Day -->
     <item>
       <title>Quote of the Day</title>
@@ -77,17 +41,6 @@
       ]]></description>
       <pubDate>{{ build_date }}</pubDate>
       <guid isPermaLink="false">journal-{{ journal.date }}</guid>
-    </item>
-
-    <!-- Wiki Link of the Day -->
-    <item>
-      <title>Wiki Link of the Day</title>
-      <link>{{ wiki_url.url }}</link>
-      <description><![CDATA[
-        <a href="{{ wiki_url.url }}" target="_blank">{{ wiki_url.url }}</a>
-      ]]></description>
-      <pubDate>{{ build_date }}</pubDate>
-      <guid isPermaLink="false">wiki-{{ build_date|replace(' ', '-') }}</guid>
     </item>
 
     <!-- Behavioral Feedback -->
