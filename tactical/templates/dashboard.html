@@ -7,6 +7,32 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <style>
+        .dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 5px;
+            display: inline-block;
+            border: 1px solid #bbb;
+        }
+
+        .dot-empty {
+            background-color: #ccc;
+        }
+
+        .dot-red {
+            background-color: #dc3545;
+        }
+
+        .dot-yellow {
+            background-color: #ffc107;
+        }
+
+        .dot-green {
+            background-color: #198754;
+        }
+    </style>
 </head>
 
 <script>
@@ -159,6 +185,32 @@
                     survey.name }}</a></li>
             {% endfor %}
         </ul>
+    </div>
+
+    <div class="mb-5">
+        <h3>Behavioral Trends (Last 14 Days)</h3>
+
+        {% for survey, questions in survey_visualization.items() %}
+        <div class="mt-4">
+            <h5>{{ survey }}</h5>
+
+            {% for q in questions %}
+            <div class="d-flex align-items-center mb-2">
+                <div style="width: 200px;">{{ q.question }}</div>
+
+                {% for v in q.values %}
+                <div class="dot
+                            {% if v == None %} dot-empty
+                            {% elif v == 0 %} dot-red
+                            {% elif v == 1 %} dot-yellow
+                            {% elif v == 2 %} dot-green
+                            {% endif %}
+                        "></div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
     </div>
 
 </body>

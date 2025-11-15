@@ -13,6 +13,10 @@ from typing import Tuple
 from pathlib import Path
 from grpc import aio
 from flask import Flask, Blueprint, render_template, request, jsonify, Response
+from datetime import date, timedelta
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import sessionmaker, scoped_session
 
 from aapis.tactical.v1 import tactical_pb2_grpc, tactical_pb2
 
@@ -24,6 +28,54 @@ DEFAULT_INSECURE_PORT = 60060
 DEFAULT_UIUXPAGE_PORT = 60070
 
 
+def init_sync_db(db_path):
+    engine = create_engine(
+        f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
+    )
+    session_factory = sessionmaker(bind=engine)
+    return scoped_session(session_factory)
+
+
+def get_survey_heatmap_data(db):
+    today = date.today()
+    start_date = today - timedelta(days=13)
+
+    # Build empty response shape in case DB isn't ready
+    empty_result = ([(start_date + timedelta(days=i)) for i in range(14)], {})
+
+    query = text("""
+        SELECT survey_name, question_name, date, value
+        FROM survey_responses
+        WHERE date BETWEEN :start AND :end
+        ORDER BY survey_name, question_name, date
+    """)
+
+    try:
+        rows = db.execute(query, {"start": start_date, "end": today}).fetchall()
+    except OperationalError:
+        # Table isn't created yet → return empty heatmap
+        return empty_result
+
+    # Continue normal processing...
+    date_range = empty_result[0]
+
+    result = {}
+    for survey, question, d, value in rows:
+        result.setdefault(survey, {}).setdefault(question, {})[d] = value
+
+    final = {}
+    for survey, questions in result.items():
+        final[survey] = [
+            {
+                "question": question,
+                "values": [answers.get(dt) for dt in date_range]
+            }
+            for question, answers in questions.items()
+        ]
+
+    return date_range, final
+
+
 class TAR_KEYS:
     TRIAGE = "Triage"
     ACTION = "Action"
@@ -31,6 +83,33 @@ class TAR_KEYS:
 
 
 CATEGORIES = [TAR_KEYS.TRIAGE, TAR_KEYS.ACTION, TAR_KEYS.RESULT]
+
+
+class SURVEY_Q_STATUS:
+    EMPTY = 0
+    NO_CREDIT = 1
+    PARTIAL_CREDIT = 2
+    FULL_CREDIT = 3
+
+
+def map_survey_result_to_status(result):
+    if (
+        result
+        == tactical_pb2.SurveyQuestionResultType.SURVEY_QUESTION_RESULT_TYPE_NO_CREDIT
+    ):
+        return SURVEY_Q_STATUS.NO_CREDIT
+    elif (
+        result
+        == tactical_pb2.SurveyQuestionResultType.SURVEY_QUESTION_RESULT_TYPE_PARTIAL_CREDIT
+    ):
+        return SURVEY_Q_STATUS.PARTIAL_CREDIT
+    elif (
+        result
+        == tactical_pb2.SurveyQuestionResultType.SURVEY_QUESTION_RESULT_TYPE_FULL_CREDIT
+    ):
+        return SURVEY_Q_STATUS.FULL_CREDIT
+    else:
+        return SURVEY_Q_STATUS.EMPTY
 
 
 def format_sigfigs(value, sigfigs=2):
@@ -312,7 +391,104 @@ class TacticalService(tactical_pb2_grpc.TacticalServiceServicer):
     async def DailyRefresh(self, request, context):
         return tactical_pb2.DailyRefreshResponse(
             success=True
-        )  # TODO for now this does nothing
+        )  # for now this does nothing
+
+    async def SubmitSurveyResult(self, request, context):
+        await self._state._init_db()
+
+        year = int(request.result.year)
+        month = int(request.result.month)
+        day = int(request.result.day)
+        date = f"{year:04d}-{month:02d}-{day:02d}"
+        survey_name = request.result.survey_name
+
+        results = [
+            (r.question_name, map_survey_result_to_status(r.result))
+            for r in request.result.results
+        ]
+
+        async with aiosqlite.connect(self._state._db_path) as db:
+            # Create table + indexes if not exist
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS survey_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date TEXT NOT NULL,
+                    survey_name TEXT NOT NULL,
+                    question_name TEXT NOT NULL,
+                    result INTEGER NOT NULL,
+                    UNIQUE(date, survey_name, question_name)
+                )
+            """
+            )
+
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_survey_key ON survey_results (date, survey_name)"
+            )
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_survey_question_lookup ON survey_results (survey_name, question_name)"
+            )
+
+            # Fetch historical questions for this survey name (spanning any date)
+            cursor = await db.execute(
+                """
+                SELECT DISTINCT question_name FROM survey_results
+                WHERE survey_name = ?
+            """,
+                (survey_name,),
+            )
+            historical_questions = {row[0] for row in await cursor.fetchall()}
+
+            # Fetch existing results for this same date
+            cursor = await db.execute(
+                """
+                SELECT question_name, result FROM survey_results
+                WHERE date = ? AND survey_name = ?
+            """,
+                (date, survey_name),
+            )
+            existing = {row[0]: row[1] for row in await cursor.fetchall()}
+
+            submitted_names = {q for q, _ in results}
+
+            # 1. Insert/update submitted questions
+            for question_name, new_result in results:
+                if question_name in existing:
+                    if new_result > existing[question_name]:
+                        await db.execute(
+                            """
+                            UPDATE survey_results
+                            SET result = ?
+                            WHERE date = ? AND survey_name = ? AND question_name = ?
+                        """,
+                            (new_result, date, survey_name, question_name),
+                        )
+                else:
+                    await db.execute(
+                        """
+                        INSERT OR IGNORE INTO survey_results (date, survey_name, question_name, result)
+                        VALUES (?, ?, ?, ?)
+                    """,
+                        (date, survey_name, question_name, new_result),
+                    )
+
+                historical_questions.add(question_name)  # Keep global list updated
+
+            # 2. Any historical question missing today → record EMPTY
+            missing_questions_today = historical_questions - submitted_names
+            for question_name in missing_questions_today:
+                if question_name not in existing:
+                    await db.execute(
+                        """
+                        INSERT OR IGNORE INTO survey_results (date, survey_name, question_name, result)
+                        VALUES (?, ?, ?, ?)
+                    """,
+                        (date, survey_name, question_name, SURVEY_Q_STATUS.EMPTY),
+                    )
+
+            await db.commit()
+
+        return tactical_pb2.SubmitSurveyResultResponse(success=True)
 
     async def UpdateComponent(self, request, context):
         component_update = request.component_update
@@ -393,6 +569,7 @@ def create_flask_app(shared_state, subdomain, main_loop):
         static_url_path=f"/{subdomain}/static",
     )
     app.secret_key = os.urandom(24)
+    db = init_sync_db(shared_state._db_path)
     bp = Blueprint("tactical", __name__, url_prefix=subdomain)
 
     @bp.route("/", methods=["GET", "POST"])
@@ -406,23 +583,30 @@ def create_flask_app(shared_state, subdomain, main_loop):
             shared_state.getWeekTimesheet(), main_loop
         )
         ttime, atime, rtime = timesheetFuture.result()
+        date_range, survey_visualization = get_survey_heatmap_data(db)
+
         data["weekly_total"] = ttime + atime + rtime
         data["weekly_hours"] = {
             TAR_KEYS.TRIAGE: ttime,
             TAR_KEYS.ACTION: atime,
             TAR_KEYS.RESULT: rtime,
         }
-        return render_template("dashboard.html", **data)
-    
+        return render_template(
+            "dashboard.html",
+            survey_visualization=survey_visualization,
+            date_range=date_range,
+            **data,
+        )
+
     @bp.route("/feed.xml")
     def rss_feed():
         dataFuture = asyncio.run_coroutine_threadsafe(shared_state.getData(), main_loop)
         data = dataFuture.result()
         rendered_xml = render_template(
             "feed.xml.j2",
-            site_url="https://andrewtorgesen.com", # ^^^^ TODO is this needed?
+            site_url="https://andrewtorgesen.com",  # ^^^^ is this needed?
             build_date=datetime.utcnow().strftime("%a, %d %b %Y 00:00:00 +0000"),
-            **data
+            **data,
         )
         return Response(rendered_xml, mimetype="application/rss+xml")
 
@@ -446,6 +630,10 @@ def create_flask_app(shared_state, subdomain, main_loop):
     @app.template_filter("sigfig")
     def sigfig_filter(value, sigfigs=2):
         return format_sigfigs(float(value), sigfigs)
+
+    @app.teardown_appcontext
+    def remove_session(exception=None):
+        db.remove()
 
     app.register_blueprint(bp)
     return app
