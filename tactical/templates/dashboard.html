@@ -198,12 +198,13 @@
             <div class="d-flex align-items-center mb-2">
                 <div style="width: 200px;">{{ q.question }}</div>
 
-                {% for v in q.values %}
+                {% for v in q.results %}
                 <div class="dot
                             {% if v == None %} dot-empty
-                            {% elif v == 0 %} dot-red
-                            {% elif v == 1 %} dot-yellow
-                            {% elif v == 2 %} dot-green
+                            {% elif v == 0 %} dot-empty
+                            {% elif v == 1 %} dot-red
+                            {% elif v == 2 %} dot-yellow
+                            {% elif v == 3 %} dot-green
                             {% endif %}
                         "></div>
                 {% endfor %}

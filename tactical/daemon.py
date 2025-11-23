@@ -44,8 +44,8 @@ def get_survey_heatmap_data(db):
     empty_result = ([(start_date + timedelta(days=i)) for i in range(14)], {})
 
     query = text("""
-        SELECT survey_name, question_name, date, value
-        FROM survey_responses
+        SELECT survey_name, question_name, date, result
+        FROM survey_results
         WHERE date BETWEEN :start AND :end
         ORDER BY survey_name, question_name, date
     """)
@@ -53,10 +53,8 @@ def get_survey_heatmap_data(db):
     try:
         rows = db.execute(query, {"start": start_date, "end": today}).fetchall()
     except OperationalError:
-        # Table isn't created yet → return empty heatmap
         return empty_result
 
-    # Continue normal processing...
     date_range = empty_result[0]
 
     result = {}
@@ -68,7 +66,7 @@ def get_survey_heatmap_data(db):
         final[survey] = [
             {
                 "question": question,
-                "values": [answers.get(dt) for dt in date_range]
+                "results": [answers.get(dt.strftime("%Y-%m-%d")) for dt in date_range]
             }
             for question, answers in questions.items()
         ]
@@ -357,7 +355,7 @@ class TacticalState:
                             {"link": link_and_name[0], "name": link_and_name[1]}
                         )
             except:
-                logging.warn("Unable to read and populate survey links")
+                logging.warning("Unable to read and populate survey links")
             self._data["surveys"] = surveys
             return self._data
 
@@ -394,6 +392,7 @@ class TacticalService(tactical_pb2_grpc.TacticalServiceServicer):
         )  # for now this does nothing
 
     async def SubmitSurveyResult(self, request, context):
+        logging.info("Received survey submission")
         await self._state._init_db()
 
         year = int(request.result.year)
