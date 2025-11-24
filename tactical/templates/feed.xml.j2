@@ -2,7 +2,6 @@
 <rss version="2.0">
   <channel>
     <title>Daily Tactical Page</title>
-    <link>{{ site_url }}</link>
     <description>Automated daily tactical summary</description>
     <language>en-us</language>
     <lastBuildDate>{{ build_date }}</lastBuildDate>
@@ -10,7 +9,6 @@
     <!-- Quote of the Day -->
     <item>
       <title>Quote of the Day</title>
-      <link>{{ site_url }}/quote</link>
       <description><![CDATA[
         <blockquote>
           <p>{{ quote.quote }}</p>
@@ -24,7 +22,6 @@
     <!-- Word of the Day -->
     <item>
       <title>Word of the Day: {{ vocab.word }}</title>
-      <link>{{ site_url }}/vocab</link>
       <description><![CDATA[
         <p>{{ vocab.definition }}</p>
       ]]></description>
@@ -35,7 +32,6 @@
     <!-- Journal Entry -->
     <item>
       <title>Journal Entry - {{ journal.date }}</title>
-      <link>{{ site_url }}/journal</link>
       <description><![CDATA[
         <p>{{ journal.entry }}</p>
       ]]></description>
@@ -46,7 +42,6 @@
     <!-- Behavioral Feedback -->
     <item>
       <title>Behavioral Feedback</title>
-      <link>{{ site_url }}/surveys</link>
       <description><![CDATA[
         <ul>
           {% for survey in surveys %}

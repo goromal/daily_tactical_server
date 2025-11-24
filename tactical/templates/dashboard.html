@@ -89,7 +89,9 @@
 
     <img src="https://raw.githubusercontent.com/goromal/anixdata/refs/heads/master/data/img/itar.svg" width="750px" />
 
-    <div class="mb-5">
+    <br><br>
+
+    <!-- <div class="mb-5">
         <h3>Clock In / Out</h3>
         {% for cat in ["Triage", "Action", "Result"] %}
         <div class="border p-3 rounded">
@@ -112,9 +114,9 @@
             </div>
         </div>
         {% endfor %}
-    </div>
+    </div> -->
 
-    <h3 class=" mt-4">This Week's TAR Summary ({{ weekly_total|sigfig }} hours)</h3>
+    <!-- <h3 class=" mt-4">This Week's TAR Summary ({{ weekly_total|sigfig }} hours)</h3>
     <div class="progress" style="height: 30px;">
         {% set colors = {'Triage': 'bg-primary', 'Action': 'bg-success', 'Result':
         'bg-warning'} %}
@@ -132,9 +134,9 @@
         {% endfor %}
     </div>
 
-    <br><br>
+    <br><br> -->
 
-    <div class="row mb-5">
+    <!-- <div class="row mb-5">
         <div class="col-md-6">
             <h3>Today's Tasks ({{ today_tasks.tasks|length }})</h3>
             <ul class="list-group">
@@ -151,9 +153,9 @@
                 {% endfor %}
             </ul>
         </div>
-    </div>
+    </div> -->
 
-    <div class="mb-5">
+    <!-- <div class="mb-5">
         <h3>Quote of the Day</h3>
         <blockquote class="blockquote">
             <p class="mb-0">{{ quote.quote }}</p>
@@ -175,9 +177,9 @@
     <div class="mb-5">
         <h3>Wiki Link of the Day</h3>
         <a href="{{ wiki_url.url }}" target="_blank" rel="noopener noreferrer">{{ wiki_url.url }}</a>
-    </div>
+    </div> -->
 
-    <div class="mb-5">
+    <!-- <div class="mb-5">
         <h3>Behavioral Feedback</h3>
         <ul class="list-group">
             {% for survey in surveys %}
@@ -185,7 +187,7 @@
                     survey.name }}</a></li>
             {% endfor %}
         </ul>
-    </div>
+    </div> -->
 
     <div class="mb-5">
         <h3>Behavioral Trends (Last 14 Days)</h3>

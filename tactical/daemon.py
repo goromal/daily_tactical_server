@@ -603,7 +603,6 @@ def create_flask_app(shared_state, subdomain, main_loop):
         data = dataFuture.result()
         rendered_xml = render_template(
             "feed.xml.j2",
-            site_url="https://andrewtorgesen.com",  # ^^^^ is this needed?
             build_date=datetime.utcnow().strftime("%a, %d %b %Y 00:00:00 +0000"),
             **data,
         )
