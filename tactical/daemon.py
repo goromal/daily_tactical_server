@@ -38,7 +38,8 @@ def init_sync_db(db_path):
 
 def get_survey_heatmap_data(db):
     today = date.today()
-    start_date = today - timedelta(days=13)
+    start_date = today - timedelta(days=14)
+    end_date = today - timedelta(days=1)
 
     # Build empty response shape in case DB isn't ready
     empty_result = ([(start_date + timedelta(days=i)) for i in range(14)], {})
@@ -51,7 +52,7 @@ def get_survey_heatmap_data(db):
     """)
 
     try:
-        rows = db.execute(query, {"start": start_date, "end": today}).fetchall()
+        rows = db.execute(query, {"start": start_date, "end": end_date}).fetchall()
     except OperationalError:
         return empty_result
 
