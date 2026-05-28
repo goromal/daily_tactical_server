@@ -179,16 +179,6 @@
         <a href="{{ wiki_url.url }}" target="_blank" rel="noopener noreferrer">{{ wiki_url.url }}</a>
     </div> -->
 
-    <!-- <div class="mb-5">
-        <h3>Behavioral Feedback</h3>
-        <ul class="list-group">
-            {% for survey in surveys %}
-            <li class="list-group-item"><a href="{{ survey.link }}" target="_blank" rel="noopener noreferrer">{{
-                    survey.name }}</a></li>
-            {% endfor %}
-        </ul>
-    </div> -->
-
     <div class="mb-5">
         <h3>Behavioral Trends (Last 14 Days)</h3>
 
@@ -214,6 +204,16 @@
             {% endfor %}
         </div>
         {% endfor %}
+    </div>
+
+    <div class="mb-5">
+        <h3>Behavioral Feedback</h3>
+        <ul class="list-group">
+            {% for survey in surveys %}
+            <li class="list-group-item"><a href="{{ survey.link }}" target="_blank" rel="noopener noreferrer">{{
+                    survey.name }}</a></li>
+            {% endfor %}
+        </ul>
     </div>
 
 </body>
