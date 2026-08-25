@@ -8,12 +8,11 @@ import json
 import statsd
 import threading
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Tuple
 from pathlib import Path
 from grpc import aio
 from flask import Flask, Blueprint, render_template, request, jsonify, Response
-from datetime import date, timedelta
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -21,6 +20,7 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from aapis.tactical.v1 import tactical_pb2_grpc, tactical_pb2
 
 from tactical.click_types import LogLevel
+from tactical.survey import SURVEY_RANGE_DAYS, build_survey_heatmap
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -36,13 +36,10 @@ def init_sync_db(db_path):
     return scoped_session(session_factory)
 
 
-def get_survey_heatmap_data(db):
+def get_survey_heatmap_data(db, days=14):
     today = date.today()
-    start_date = today - timedelta(days=14)
+    start_date = today - timedelta(days=days)
     end_date = today - timedelta(days=1)
-
-    # Build empty response shape in case DB isn't ready
-    empty_result = ([(start_date + timedelta(days=i)) for i in range(14)], {})
 
     query = text("""
         SELECT survey_name, question_name, date, result
@@ -54,25 +51,9 @@ def get_survey_heatmap_data(db):
     try:
         rows = db.execute(query, {"start": start_date, "end": end_date}).fetchall()
     except OperationalError:
-        return empty_result
+        rows = []
 
-    date_range = empty_result[0]
-
-    result = {}
-    for survey, question, d, value in rows:
-        result.setdefault(survey, {}).setdefault(question, {})[d] = value
-
-    final = {}
-    for survey, questions in result.items():
-        final[survey] = [
-            {
-                "question": question,
-                "results": [answers.get(dt.strftime("%Y-%m-%d")) for dt in date_range]
-            }
-            for question, answers in questions.items()
-        ]
-
-    return date_range, final
+    return build_survey_heatmap(rows, days, today)
 
 
 class TAR_KEYS:
@@ -583,7 +564,10 @@ def create_flask_app(shared_state, subdomain, main_loop):
             shared_state.getWeekTimesheet(), main_loop
         )
         ttime, atime, rtime = timesheetFuture.result()
-        date_range, survey_visualization = get_survey_heatmap_data(db)
+        selected_days = request.args.get("days", default=14, type=int)
+        if selected_days not in SURVEY_RANGE_DAYS:
+            selected_days = 14
+        date_range, survey_visualization = get_survey_heatmap_data(db, selected_days)
 
         data["weekly_total"] = ttime + atime + rtime
         data["weekly_hours"] = {
@@ -595,6 +579,7 @@ def create_flask_app(shared_state, subdomain, main_loop):
             "dashboard.html",
             survey_visualization=survey_visualization,
             date_range=date_range,
+            selected_days=selected_days,
             **data,
         )
 

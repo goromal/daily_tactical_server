@@ -3,36 +3,11 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Daily Tactical Page</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <style>
-        .dot {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            margin-right: 5px;
-            display: inline-block;
-            border: 1px solid #bbb;
-        }
-
-        .dot-empty {
-            background-color: #ccc;
-        }
-
-        .dot-red {
-            background-color: #dc3545;
-        }
-
-        .dot-yellow {
-            background-color: #ffc107;
-        }
-
-        .dot-green {
-            background-color: #198754;
-        }
-    </style>
 </head>
 
 <script>
@@ -87,7 +62,8 @@
 
     <h1 class="mb-4">Daily Tactical Page</h1>
 
-    <img src="https://raw.githubusercontent.com/goromal/anixdata/refs/heads/master/data/img/itar.svg" width="750px" />
+    <img class="tactical-diagram" src="https://raw.githubusercontent.com/goromal/anixdata/refs/heads/master/data/img/itar.svg"
+        alt="Triage, Action, Result tactical workflow" />
 
     <br><br>
 
@@ -179,32 +155,68 @@
         <a href="{{ wiki_url.url }}" target="_blank" rel="noopener noreferrer">{{ wiki_url.url }}</a>
     </div> -->
 
-    <div class="mb-5">
-        <h3>Behavioral Trends (Last 14 Days)</h3>
+    <section class="survey-results survey-range-{{ selected_days }} mb-5" style="--result-days: {{ selected_days }};">
+        <div class="survey-results-header">
+            <div>
+                <p class="survey-eyebrow">Survey results</p>
+                <h3>Behavioral Trends</h3>
+                <p class="survey-subtitle">Each row runs from oldest to newest. Section colors summarize recent answers,
+                    with newer answers carrying more weight.</p>
+            </div>
+            <form class="range-picker" method="get">
+                <label for="survey-range">Time range</label>
+                <select id="survey-range" name="days" class="form-select" onchange="this.form.submit()">
+                    <option value="7" {% if selected_days==7 %}selected{% endif %}>Past week</option>
+                    <option value="14" {% if selected_days==14 %}selected{% endif %}>Past two weeks</option>
+                    <option value="30" {% if selected_days==30 %}selected{% endif %}>Past month</option>
+                </select>
+                <noscript><button class="btn btn-primary" type="submit">Apply</button></noscript>
+            </form>
+        </div>
 
-        {% for survey, questions in survey_visualization.items() %}
-        <div class="mt-4">
-            <h5>{{ survey }}</h5>
+        <div class="survey-legend" aria-label="Result legend">
+            <span><i class="dot dot-red"></i>No credit</span>
+            <span><i class="dot dot-yellow"></i>Partial</span>
+            <span><i class="dot dot-green"></i>Full credit</span>
+            <span><i class="dot dot-empty"></i>No response</span>
+        </div>
 
-            {% for q in questions %}
-            <div class="d-flex align-items-center mb-2">
-                <div style="width: 200px;">{{ q.question }}</div>
+        {% for survey, section in survey_visualization.items() %}
+        <article class="survey-section survey-section-{{ section.tone }}">
+            <header class="survey-section-header">
+                <h4>{{ survey }}</h4>
+                <span class="survey-summary">{{ section.summary }}{% if section.score != None %} · {{ "%.1f"|format(section.score) }}/3{% endif %}</span>
+            </header>
 
-                {% for v in q.results %}
-                <div class="dot
-                            {% if v == None %} dot-empty
-                            {% elif v == 0 %} dot-empty
+            <div class="survey-date-span" aria-hidden="true">
+                <div class="survey-date-axis">
+                    <time>{{ date_range[0].strftime('%b %-d') }}</time>
+                    <span>Older → Newer</span>
+                    <time>{{ date_range[-1].strftime('%b %-d') }}</time>
+                </div>
+            </div>
+            {% for q in section.questions %}
+            <div class="survey-question">
+                <div class="question-label">{{ q.question }}</div>
+                <div class="dot-grid">
+                    {% for result in q.results %}
+                    {% set v = result.value %}
+                    <i class="dot
+                            {% if v == None or v == 0 %} dot-empty
                             {% elif v == 1 %} dot-red
                             {% elif v == 2 %} dot-yellow
                             {% elif v == 3 %} dot-green
-                            {% endif %}
-                        "></div>
-                {% endfor %}
+                            {% endif %}"
+                        title="{{ result.date.strftime('%b %-d') }}: {% if v == 1 %}No credit{% elif v == 2 %}Partial credit{% elif v == 3 %}Full credit{% else %}No response{% endif %}"></i>
+                    {% endfor %}
+                </div>
             </div>
             {% endfor %}
-        </div>
+        </article>
+        {% else %}
+        <div class="survey-empty">No survey results yet for this time range.</div>
         {% endfor %}
-    </div>
+    </section>
 
     <div class="mb-5">
         <h3>Behavioral Feedback</h3>
