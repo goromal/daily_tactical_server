@@ -21,6 +21,12 @@ from aapis.tactical.v1 import tactical_pb2_grpc, tactical_pb2
 
 from tactical.click_types import LogLevel
 from tactical.survey import SURVEY_RANGE_DAYS, build_survey_heatmap
+from tactical.usage import (
+    USAGE_DEVICES,
+    USAGE_RANGE_DAYS,
+    UsageArchive,
+    parse_ingest_body,
+)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -193,16 +199,14 @@ class TacticalState:
 
     async def _init_db(self):
         async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                """
+            await db.execute("""
                 CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     tag TEXT NOT NULL,
                     event_type TEXT CHECK(event_type IN ('in', 'out')) NOT NULL,
                     timestamp TEXT NOT NULL
                 )
-            """
-            )
+            """)
             await db.commit()
 
     async def _clock_in(self, tag: str):
@@ -390,8 +394,7 @@ class TacticalService(tactical_pb2_grpc.TacticalServiceServicer):
 
         async with aiosqlite.connect(self._state._db_path) as db:
             # Create table + indexes if not exist
-            await db.execute(
-                """
+            await db.execute("""
                 CREATE TABLE IF NOT EXISTS survey_results (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     date TEXT NOT NULL,
@@ -400,8 +403,7 @@ class TacticalService(tactical_pb2_grpc.TacticalServiceServicer):
                     result INTEGER NOT NULL,
                     UNIQUE(date, survey_name, question_name)
                 )
-            """
-            )
+            """)
 
             await db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_survey_key ON survey_results (date, survey_name)"
@@ -542,7 +544,7 @@ async def serve_grpc(port, state, statsd_port=None):
     await server.wait_for_termination()
 
 
-def create_flask_app(shared_state, subdomain, main_loop):
+def create_flask_app(shared_state, subdomain, main_loop, usage_archive):
     app = Flask(
         __name__,
         template_folder=os.path.join(BASE_DIR, "templates"),
@@ -568,6 +570,15 @@ def create_flask_app(shared_state, subdomain, main_loop):
         if selected_days not in SURVEY_RANGE_DAYS:
             selected_days = 14
         date_range, survey_visualization = get_survey_heatmap_data(db, selected_days)
+        usage_days = request.args.get("usage_days", default=7, type=int)
+        if usage_days not in USAGE_RANGE_DAYS:
+            usage_days = 7
+        usage_device = request.args.get("usage_device", default="all", type=str)
+        if usage_device not in USAGE_DEVICES:
+            usage_device = "all"
+        usage = usage_archive.summary(
+            usage_days, None if usage_device == "all" else usage_device
+        )
 
         data["weekly_total"] = ttime + atime + rtime
         data["weekly_hours"] = {
@@ -580,6 +591,9 @@ def create_flask_app(shared_state, subdomain, main_loop):
             survey_visualization=survey_visualization,
             date_range=date_range,
             selected_days=selected_days,
+            usage=usage,
+            usage_days=usage_days,
+            usage_device=usage_device,
             **data,
         )
 
@@ -611,6 +625,18 @@ def create_flask_app(shared_state, subdomain, main_loop):
             new_state = "out"
         return jsonify(success=True, new_state=new_state)
 
+    @bp.route("/api/usage/ingest", methods=["POST"])
+    def api_usage_ingest():
+        # Only the metrics hub's local Vector should write here. nginx stamps
+        # X-Forwarded-For on everything it proxies, so its presence means the
+        # request came from the LAN rather than from Vector on loopback.
+        if request.headers.get("X-Forwarded-For"):
+            return jsonify(error="ingest is loopback-only"), 403
+        accepted, rejected = usage_archive.append(parse_ingest_body(request.get_data()))
+        if rejected:
+            logging.warning(f"Usage ingest dropped {rejected} malformed event(s)")
+        return jsonify(accepted=accepted, rejected=rejected)
+
     @app.template_filter("sigfig")
     def sigfig_filter(value, sigfigs=2):
         return format_sigfigs(float(value), sigfigs)
@@ -623,8 +649,8 @@ def create_flask_app(shared_state, subdomain, main_loop):
     return app
 
 
-def run_flask(port, state, subdomain, main_loop):
-    app = create_flask_app(state, subdomain, main_loop)
+def run_flask(port, state, subdomain, main_loop, usage_archive):
+    app = create_flask_app(state, subdomain, main_loop, usage_archive)
     app.run(port=port, use_reloader=False)
 
 
@@ -670,6 +696,12 @@ def run_flask(port, state, subdomain, main_loop):
     help="Subdomain for a reverse proxy",
 )
 @click.option(
+    "--usage-dir",
+    type=str,
+    default=None,
+    help="UI usage archive directory (default: a usage/ directory beside the database)",
+)
+@click.option(
     "--surveys",
     type=str,
     default="~/configs/survey-links.csv",
@@ -683,12 +715,16 @@ def cli(
     statsd_port,
     log_level,
     subdomain,
+    usage_dir,
     surveys,
 ):
     """Spawn the Daily tactical server."""
     logging.basicConfig(level=log_level)
     logging.info(f"Log level set to {log_level}")
     state = TacticalState(storage_path, db_path, surveys)
+    usage_archive = UsageArchive(
+        usage_dir or os.path.join(os.path.dirname(os.path.abspath(db_path)), "usage")
+    )
     main_async_loop = asyncio.get_event_loop()
     flask_thread = threading.Thread(
         target=run_flask,
@@ -697,6 +733,7 @@ def cli(
             state,
             subdomain,
             main_async_loop,
+            usage_archive,
         ),
     )
     flask_thread.start()
